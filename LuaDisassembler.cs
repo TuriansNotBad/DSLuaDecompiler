@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using luadec.IR;
@@ -660,6 +661,10 @@ namespace luadec
             }
             irfun.SetParameters(parameters);
 
+            // num of move/getupvalue instructions to mark as not redundant.
+            int upvalNum = 0;
+            int upvalLevel = -1; // closure index the instructions belong to
+
             BinaryReaderEx br = new BinaryReaderEx(false, fun.Bytecode);
             for (int i = 0; i < fun.Bytecode.Length; i += 4)
             {
@@ -679,6 +684,10 @@ namespace luadec
                     case Lua50Ops.OpMove:
                         //instructions.Add(new IR.PlaceholderInstruction(($@"R({a}) := R({b})")));
                         assn = new IR.Assignment(SymbolTable.GetRegister(a), new IR.IdentifierReference(SymbolTable.GetRegister(b)));
+
+                        // mark this to keep for closure pass
+                        assn.CheckRedundant( ref upvalNum, upvalLevel );
+
                         CheckLocal(assn, fun, pc);
                         instructions.Add(assn);
                         break;
@@ -708,6 +717,10 @@ namespace luadec
                         instructions.Add(assn);
                         break;
                     case Lua50Ops.OpGetUpVal:
+                        //Console.WriteLine( "---------------------------Upvalue = {0}", b );
+                        //foreach ( var j in irfun.UpvalueBindings )
+                            //Console.WriteLine( "---------------------------Upvalue = {0}", j.ToString() );
+
                         var up = SymbolTable.GetUpvalue(b);
                         if (fun.UpvalueNames.Count() > 0 && !up.UpvalueResolved)
                         {
@@ -723,6 +736,8 @@ namespace luadec
                             up = irfun.UpvalueBindings[(int)b];
                         }
                         assn = new IR.Assignment(SymbolTable.GetRegister(a), new IR.IdentifierReference(up));
+                        // mark this to keep for closure pass if needed
+                        assn.CheckRedundant( ref upvalNum, upvalLevel );
                         CheckLocal(assn, fun, pc);
                         instructions.Add(assn);
                         break;
@@ -958,6 +973,13 @@ namespace luadec
                         assn = new IR.Assignment(SymbolTable.GetRegister(a), new IR.Closure(irfun.LookupClosure(bx)));
                         CheckLocal(assn, fun, pc);
                         instructions.Add(assn);
+                        // check if we have upvalues and prepare to save the next upvalcount instructions from the
+                        // redundancy check
+                        if (assn.Right is Closure clos && clos.Function.UpvalCount > 0) {
+                            Console.WriteLine( "Marking next {0} instructions to be saved as upval related", clos.Function.UpvalCount );
+                            upvalNum += clos.Function.UpvalCount;
+                            upvalLevel++;
+                        }
                         break;
                     default:
                         switch (OpProperties50[opcode].OpMode)
@@ -981,11 +1003,18 @@ namespace luadec
                     irfun.AddInstruction(inst);
                 }
             }
+
             irfun.ApplyLabels();
+            
 
             // Simple post-ir and idiom recognition analysis passes
             irfun.ResolveVarargListAssignment();
             irfun.MergeMultiBoolAssignment();
+            // this now saves any instructions used for upvalue registration pass in a separate list
+            // but deletes all of them from the instructions list.
+            // calling this here forces closure instruction generated instructions of type MOVE 0 0 or GETUPVAL 0 0 to
+            // get deleted thus causing the RegisterClosureUpvalues50 to fail or register wrong vars as upvalues.
+            // Not actually so sure that the locals registers are pointing to are guaranteed to remain same by the time we get to them.
             irfun.EliminateRedundantAssignments();
             irfun.MergeConditionalJumps();
             irfun.MergeConditionalAssignments();
@@ -999,6 +1028,7 @@ namespace luadec
 
             // Upval registration
             irfun.RegisterClosureUpvalues50();
+            //irfun.EliminateRedundantAssignments();
 
             // Data flow passes
             irfun.EliminateDeadAssignments(true);
@@ -1034,6 +1064,8 @@ namespace luadec
                 }
             }
             SymbolTable.EndScope();
+
+
         }
 
         public static IR.Identifier Upvalue53(LuaFile.Function fun, uint upid)

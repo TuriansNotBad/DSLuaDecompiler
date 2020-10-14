@@ -55,5 +55,9 @@ namespace luadec.IR
             }
             return Name;
         }
+
+        public Identifier Copy() {
+            return (Identifier) this.MemberwiseClone();
+        }
     }
 }
