@@ -686,6 +686,9 @@ namespace luadec
                         assn = new IR.Assignment(SymbolTable.GetRegister(a), new IR.IdentifierReference(SymbolTable.GetRegister(b)));
 
                         // mark this to keep for closure pass
+                        if ( upvalNum > 0 ) {
+                            Console.WriteLine( "Upval instruction marked: {0}", assn.ToString() );
+                        }
                         assn.CheckRedundant( ref upvalNum, upvalLevel );
 
                         CheckLocal(assn, fun, pc);
@@ -736,6 +739,9 @@ namespace luadec
                             up = irfun.UpvalueBindings[(int)b];
                         }
                         assn = new IR.Assignment(SymbolTable.GetRegister(a), new IR.IdentifierReference(up));
+                        if ( upvalNum > 0 ) {
+                            Console.WriteLine( "Upval instruction marked: {0}", assn.ToString() );
+                        }
                         // mark this to keep for closure pass if needed
                         assn.CheckRedundant( ref upvalNum, upvalLevel );
                         CheckLocal(assn, fun, pc);
@@ -976,9 +982,9 @@ namespace luadec
                         // check if we have upvalues and prepare to save the next upvalcount instructions from the
                         // redundancy check
                         if (assn.Right is Closure clos && clos.Function.UpvalCount > 0) {
-                            Console.WriteLine( "Marking next {0} instructions to be saved as upval related", clos.Function.UpvalCount );
+                            Console.WriteLine( "Marking next {0} instructions to be saved as upval related for func {1}", clos.Function.UpvalCount, clos.Function.DebugID );
                             upvalNum += clos.Function.UpvalCount;
-                            upvalLevel++;
+                            upvalLevel = clos.Function.DebugID;
                         }
                         break;
                     default:
@@ -1003,7 +1009,7 @@ namespace luadec
                     irfun.AddInstruction(inst);
                 }
             }
-
+            
             irfun.ApplyLabels();
             
 

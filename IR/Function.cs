@@ -12,7 +12,8 @@ namespace luadec.IR {
         private List<Identifier> Parameters;
         private List<Function> Closures;
         private List<IInstruction> Instructions;
-        private List<List<Assignment>> UpValInstructions;
+        //private List<List<Assignment>> UpValInstructions;
+        private Dictionary<int, List<Assignment>> UpValInst;
 
         private Dictionary<uint, Label> Labels;
 
@@ -84,7 +85,8 @@ namespace luadec.IR {
             Parameters = new List<Identifier>();
             Closures = new List<Function>();
             Instructions = new List<IInstruction>();
-            UpValInstructions = new List<List<Assignment>>();
+            //UpValInstructions = new List<List<Assignment>>();
+            UpValInst = new Dictionary<int, List<Assignment>>();
             Labels = new Dictionary<uint, Label>();
             BlockList = new List<CFG.BasicBlock>();
             GlobalIdentifiers = new HashSet<Identifier>();
@@ -167,6 +169,19 @@ namespace luadec.IR {
 
                         // remove all instructions we save
                         bool forceRemove = false;
+
+                        if ( assn.UpValClosureLevel > -1 ) {
+
+                            if ( !UpValInst.ContainsKey( assn.UpValClosureLevel ) ) {
+                                UpValInst.TryAdd( assn.UpValClosureLevel, new List<Assignment>() );
+                            }
+
+                            Console.WriteLine( "Adding key val pair {0}, {1}", DebugID, assn.ToString() );
+                            UpValInst[assn.UpValClosureLevel].Add( assn );
+                            forceRemove = true;
+
+                        }
+                        /*
                         // save it for closure pass
                         if ( assn.UpValClosureLevel > -1 ) {
                             if ( UpValInstructions.Count - assn.UpValClosureLevel == 1 ) {
@@ -178,7 +193,7 @@ namespace luadec.IR {
                                 forceRemove = true;
                             } else
                                 throw new IndexOutOfRangeException( "UpValInstructions out of bounds" );
-                        }
+                        }*/
 
                         if ( assn.Left[0].Identifier == reference.Identifier || forceRemove ) {
                             Instructions.RemoveAt( i );
@@ -772,13 +787,15 @@ namespace luadec.IR {
                         if ( c.Function.UpvalCount < 1 )
                             continue;
 
-                        if ( this.UpValInstructions.Count <= upvalLevel ) {
-                            throw new IndexOutOfRangeException( "Upval reigstering failed. Upval level doesn't exist" );
-                        } else if ( this.UpValInstructions[upvalLevel].Count != c.Function.UpvalCount ) {
+                        if ( !UpValInst.ContainsKey(c.Function.DebugID ) ) {
+                            Console.WriteLine( "Extra exception info: level = {0}, key = {1}", upvalLevel, c.Function.DebugID );
+                            throw new IndexOutOfRangeException( "Upval reigstering failed. Key doesn't exist." );
+                        } else if ( UpValInst[c.Function.DebugID].Count != c.Function.UpvalCount ) {
+                            Console.WriteLine( "Extra exception info: level = {0}, instruction = {1}", upvalLevel, i );
                             throw new IndexOutOfRangeException( "Upval reigstering failed. Mismatch upval count size" );
                         }
 
-                        foreach ( var j in this.UpValInstructions[upvalLevel] ) {
+                        foreach ( var j in UpValInst[c.Function.DebugID] ) {
                             //if ( j is Assignment ca2 ) {
                             //    if ( ca2.Right is IdentifierReference ir2 ) {
                             //        Console.WriteLine( ir2.Identifier.ToString() );
@@ -790,7 +807,7 @@ namespace luadec.IR {
                                 ca.Right is IdentifierReference ir &&
                                 ir.Identifier.IType == Identifier.IdentifierType.Register )
                             {
-                                Console.WriteLine( "Adding upval: {0}", ca.ToString() );
+                                Console.WriteLine( "Adding upval: {0}, location: {1}", ca.ToString(), c.Function.DebugID );
                                 c.Function.UpvalueBindings.Add( ir.Identifier );
                                 ir.Identifier.IsClosureBound = true;
                                 //b.Instructions.RemoveAt( i + 1 );
