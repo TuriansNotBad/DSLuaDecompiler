@@ -1,4 +1,4 @@
-Trying to fix some crashes/decompilation errors when decompiling DS3 scripts. Might break 5.3 compatibility and other things in the process.
+Trying to fix some crashes/decompilation errors when decompiling DS3 scripts. Might break 5.3 compatibility and other things in the process. changelog.md keeps track of everything I edit/reasoning behind it.
 # DSLuaDecompiler
 This is a work in progress decompiler for Lua 5.0.2 and HavokScript. Specifically, it is designed and intended to decompile Lua files found in Dark Souls, Dark Souls 3, Bloodborne, and Sekiro. These scripts are primarily used to implement AI logic in the games. DS3, Bloodborne, and Sekiro also use HavokScript, a heavily modified version of Lua 5.1, to interface the game with the Havok behavior system and much of the character animation logic is in HavokScript. This decompiler will decompile a subset of Havokscript that is used in these games.
 
