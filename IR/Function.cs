@@ -305,8 +305,7 @@ namespace luadec.IR {
                     Instructions[i + 3] is Label label1 && label1 == jmp.Dest &&
                     Instructions[i + 4] is Assignment asscond2 && asscond2.Left.Count() == 1 && asscond2.Left[0] is IdentifierReference assignee2 &&
                     assignee.Identifier == assignee2.Identifier && asscond2.Right is Constant c2 && c2.ConstType == Constant.ConstantType.ConstBool && c2.Boolean &&
-                    Instructions[i + 5] is Label label2 && label2 == jmp2.Dest )
-                {
+                    Instructions[i + 5] is Label label2 && label2 == jmp2.Dest ) {
                     if ( jmp.Condition is BinOp bop ) {
                         bop.NegateCondition();
                     }
@@ -796,7 +795,7 @@ namespace luadec.IR {
                         if ( c.Function.UpvalCount < 1 )
                             continue;
 
-                        if ( !UpValInst.ContainsKey(c.Function.DebugID ) ) {
+                        if ( !UpValInst.ContainsKey( c.Function.DebugID ) ) {
                             Console.WriteLine( "Extra exception info: level = {0}, key = {1}", upvalLevel, c.Function.DebugID );
                             throw new IndexOutOfRangeException( "Upval reigstering failed. Key doesn't exist." );
                         } else if ( UpValInst[c.Function.DebugID].Count != c.Function.UpvalCount ) {
@@ -814,8 +813,7 @@ namespace luadec.IR {
                                 ca.Left.Count == 1 &&
                                 ca.Left[0].Identifier.Regnum == 0 &&
                                 ca.Right is IdentifierReference ir &&
-                                ir.Identifier.IType == Identifier.IdentifierType.Register )
-                            {
+                                ir.Identifier.IType == Identifier.IdentifierType.Register ) {
                                 //Console.WriteLine( "Adding upval: {0}, location: {1}", ca.ToString(), c.Function.DebugID );
                                 c.Function.UpvalueBindings.Add( ir.Identifier );
                                 ir.Identifier.IsClosureBound = true;
@@ -910,8 +908,7 @@ namespace luadec.IR {
                                 use.DefiningInstruction is Assignment a &&
                                 a.Left.Count() == 1 && a.LocalAssignments == null &&
                                 (use.UseCount == 1 || a.PropogateAlways) &&
-                                !a.Left[0].Identifier.IsClosureBound )
-                            {
+                                !a.Left[0].Identifier.IsClosureBound ) {
 
                                 bool replaced = inst.ReplaceUses( use, a.Right );
                                 if ( a.Block != null && replaced ) {
@@ -939,8 +936,7 @@ namespace luadec.IR {
                         if ( inst is Assignment a && a.Right is FunctionCall fc && fc.Args.Count > 0 &&
                             fc.Args[0] is IdentifierReference ir && !ir.HasIndex && ir.Identifier.UseCount == 2 &&
                             i > 0 && b.Instructions[i - 1] is Assignment a2 && a2.Left.Count == 1 &&
-                            !a2.Left[0].HasIndex && a2.Left[0].Identifier == ir.Identifier )
-                        {
+                            !a2.Left[0].HasIndex && a2.Left[0].Identifier == ir.Identifier ) {
                             a.ReplaceUses( a2.Left[0].Identifier, a2.Right );
                             b.Instructions.RemoveAt( i - 1 );
                             i--;
@@ -1421,7 +1417,7 @@ namespace luadec.IR {
 
                 //Console.WriteLine( "[{4}] = {0}, {1}, {2}, {3}", BlockList[i].Instructions.Count, BlockList[i].Successors.Count, BlockList[i].BlockID, BlockList[i].Predecessors.Count, i );
                 // it should have no instructions and only one successor which is the adjacent block. And should have predecessors
-                if ( BlockList[i].Instructions.Count != 0 
+                if ( BlockList[i].Instructions.Count != 0
                     || BlockList[i].Successors.Count != 1
                     //|| BlockList[i].BlockID != BlockList[i].Successors[0].BlockID - 1
                     || BlockList[i].Predecessors.Count == 0 )
@@ -1431,7 +1427,7 @@ namespace luadec.IR {
                 if ( BlockList.Count == i + 1 || BlockList[i].Successors[0] != BlockList[i + 1] )
                     continue;
 
-               // Console.WriteLine( "Block {0} is empty with 1 correct successor {1}", BlockList[i].ToString(), BlockList[i].Successors[0].ToString() );
+                // Console.WriteLine( "Block {0} is empty with 1 correct successor {1}", BlockList[i].ToString(), BlockList[i].Successors[0].ToString() );
 
                 // if we only have one successor then the successor should only have one predecessor
                 // so we can just inherit all our predecessors
