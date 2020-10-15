@@ -40,6 +40,7 @@ namespace luadec
             catch (Exception e)
             {
                 Console.WriteLine("Usage: DSLuaDecompiler.exe [options] inputfile.lua\n-o outputfile.lua\n-d Print output in console");
+                return;
             }
 
             Console.OutputEncoding = outEncoding;

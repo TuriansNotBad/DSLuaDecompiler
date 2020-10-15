@@ -176,7 +176,7 @@ namespace luadec.IR {
                                 UpValInst.TryAdd( assn.UpValClosureLevel, new List<Assignment>() );
                             }
 
-                            Console.WriteLine( "Adding key val pair {0}, {1}", DebugID, assn.ToString() );
+                            //Console.WriteLine( "Adding key val pair {0}, {1}", DebugID, assn.ToString() );
                             UpValInst[assn.UpValClosureLevel].Add( assn );
                             forceRemove = true;
 
@@ -289,7 +289,14 @@ namespace luadec.IR {
             // ...
             // This pattern matches such a case and replaces it with just:
             // REGB = REGA ~= 1234
+            // ---------------------------------------
+            // return log.logs[name] == true or log.on == false; can generate similar output and label_1 is used by
+            // first condition so we can't assume code after REGB=false is redundant
+            // could do a different pass to scan for all used labels but not sure it worth it just to delete
+            // a bunch of instructions that are unreachable anyway.
+
             for ( int i = 0; i < Instructions.Count() - 6; i++ ) {
+
                 // Big pattern match
                 if ( Instructions[i] is Jump jmp && jmp.Conditional &&
                     Instructions[i + 1] is Assignment asscond1 && asscond1.Left.Count() == 1 && asscond1.Left[0] is IdentifierReference assignee &&
@@ -298,13 +305,15 @@ namespace luadec.IR {
                     Instructions[i + 3] is Label label1 && label1 == jmp.Dest &&
                     Instructions[i + 4] is Assignment asscond2 && asscond2.Left.Count() == 1 && asscond2.Left[0] is IdentifierReference assignee2 &&
                     assignee.Identifier == assignee2.Identifier && asscond2.Right is Constant c2 && c2.ConstType == Constant.ConstantType.ConstBool && c2.Boolean &&
-                    Instructions[i + 5] is Label label2 && label2 == jmp2.Dest ) {
+                    Instructions[i + 5] is Label label2 && label2 == jmp2.Dest )
+                {
                     if ( jmp.Condition is BinOp bop ) {
                         bop.NegateCondition();
                     }
                     var newassn = new Assignment( assignee, jmp.Condition );
                     Instructions[i] = newassn;
-                    Instructions.RemoveRange( i + 1, 4 ); // Don't remove the final label as it can be a jump destination sometimes
+                    // Can only remove one instruction (REGB = false) since both labels can be used elsewhere in the code
+                    Instructions.RemoveRange( i + 1, 1 ); // Don't remove the final label as it can be a jump destination sometimes
                 }
             }
         }
@@ -807,7 +816,7 @@ namespace luadec.IR {
                                 ca.Right is IdentifierReference ir &&
                                 ir.Identifier.IType == Identifier.IdentifierType.Register )
                             {
-                                Console.WriteLine( "Adding upval: {0}, location: {1}", ca.ToString(), c.Function.DebugID );
+                                //Console.WriteLine( "Adding upval: {0}, location: {1}", ca.ToString(), c.Function.DebugID );
                                 c.Function.UpvalueBindings.Add( ir.Identifier );
                                 ir.Identifier.IsClosureBound = true;
                                 //b.Instructions.RemoveAt( i + 1 );
@@ -1401,6 +1410,48 @@ namespace luadec.IR {
                 }
             }
             Visit( BeginBlock, null );
+        }
+
+        /// <summary>
+        /// Unlinks blocks with no instructions that only have the next block as their successor.
+        /// The successor takes its place.
+        /// </summary>
+        public void UnlinkIrrelevantEmptyBlocks() {
+            for ( int i = 0; i < BlockList.Count; i++ ) {
+
+                //Console.WriteLine( "[{4}] = {0}, {1}, {2}, {3}", BlockList[i].Instructions.Count, BlockList[i].Successors.Count, BlockList[i].BlockID, BlockList[i].Predecessors.Count, i );
+                // it should have no instructions and only one successor which is the adjacent block. And should have predecessors
+                if ( BlockList[i].Instructions.Count != 0 
+                    || BlockList[i].Successors.Count != 1
+                    //|| BlockList[i].BlockID != BlockList[i].Successors[0].BlockID - 1
+                    || BlockList[i].Predecessors.Count == 0 )
+                    continue;
+
+                // is next block in the list our successor?!
+                if ( BlockList.Count == i + 1 || BlockList[i].Successors[0] != BlockList[i + 1] )
+                    continue;
+
+               // Console.WriteLine( "Block {0} is empty with 1 correct successor {1}", BlockList[i].ToString(), BlockList[i].Successors[0].ToString() );
+
+                // if we only have one successor then the successor should only have one predecessor
+                // so we can just inherit all our predecessors
+                BlockList[i].Successors[0].Predecessors = BlockList[i].Predecessors;
+
+                // find all predecessors pointing at me and relink them to my successor
+                foreach ( var predecessor in BlockList[i].Predecessors ) {
+                    for ( int j = 0; j < predecessor.Successors.Count; j++ ) {
+                        if ( predecessor.Successors[j] == BlockList[i] ) {
+                            //Console.WriteLine( "Relinking predecessor's {3} successor [{0}] = {1} to {2}", i, predecessor.Successors[j].ToString(), BlockList[i].Successors[0].ToString(), predecessor.ToString() );
+                            predecessor.Successors[j] = BlockList[i].Successors[0];
+
+                        }
+                    }
+                }
+
+                BlockList.RemoveAt( i );
+                i--;
+
+            }
         }
 
         public void StructureCompoundConditionals() {
@@ -2291,7 +2342,7 @@ namespace luadec.IR {
                 if ( ArgumentNames != null && ArgumentNames.Count() > i ) {
                     Parameters[i].Name = ArgumentNames[i].Name;
                 } else {
-                    Parameters[i].Name = $@"arg{i}";
+                    Parameters[i].Name = $@"f{DebugID}_arg{i}";
                 }
             }
 
@@ -2422,11 +2473,11 @@ namespace luadec.IR {
                         }
                         str += inst.ToString() + "\n";
                     }
-                    foreach ( var inst in b.Instructions ) {
+                    for ( int x = 0; x < Instructions.Count; x++ ) {
                         for ( int i = 0; i < IndentLevel; i++ ) {
                             str += "    ";
                         }
-                        str += inst.ToString() + "\n";
+                        str += Instructions[x].ToString() + "\n";
                     }
 
                     // Insert an implicit goto for fallthrough blocks if the destination isn't actually the next block

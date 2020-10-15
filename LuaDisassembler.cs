@@ -687,7 +687,7 @@ namespace luadec
 
                         // mark this to keep for closure pass
                         if ( upvalNum > 0 ) {
-                            Console.WriteLine( "Upval instruction marked: {0}", assn.ToString() );
+                            //Console.WriteLine( "Upval instruction marked: {0}", assn.ToString() );
                         }
                         assn.CheckRedundant( ref upvalNum, upvalLevel );
 
@@ -740,7 +740,7 @@ namespace luadec
                         }
                         assn = new IR.Assignment(SymbolTable.GetRegister(a), new IR.IdentifierReference(up));
                         if ( upvalNum > 0 ) {
-                            Console.WriteLine( "Upval instruction marked: {0}", assn.ToString() );
+                            //Console.WriteLine( "Upval instruction marked: {0}", assn.ToString() );
                         }
                         // mark this to keep for closure pass if needed
                         assn.CheckRedundant( ref upvalNum, upvalLevel );
@@ -769,6 +769,7 @@ namespace luadec
                         {
                             up2.Name = fun.UpvalueNames[b].Name;
                             up2.UpvalueResolved = true;
+                            Console.WriteLine();
                         }
                         else
                         {
@@ -982,7 +983,7 @@ namespace luadec
                         // check if we have upvalues and prepare to save the next upvalcount instructions from the
                         // redundancy check
                         if (assn.Right is Closure clos && clos.Function.UpvalCount > 0) {
-                            Console.WriteLine( "Marking next {0} instructions to be saved as upval related for func {1}", clos.Function.UpvalCount, clos.Function.DebugID );
+                            //Console.WriteLine( "Marking next {0} instructions to be saved as upval related for func {1}", clos.Function.UpvalCount, clos.Function.DebugID );
                             upvalNum += clos.Function.UpvalCount;
                             upvalLevel = clos.Function.DebugID;
                         }
@@ -1016,7 +1017,7 @@ namespace luadec
             // Simple post-ir and idiom recognition analysis passes
             irfun.ResolveVarargListAssignment();
             irfun.MergeMultiBoolAssignment();
-            // this now saves any instructions used for upvalue registration pass in a separate list
+            // this now saves any instructions used for upvalue registration pass in a separate dictionary key'd by DebugId
             // but deletes all of them from the instructions list.
             // calling this here forces closure instruction generated instructions of type MOVE 0 0 or GETUPVAL 0 0 to
             // get deleted thus causing the RegisterClosureUpvalues50 to fail or register wrong vars as upvalues.
@@ -1041,6 +1042,9 @@ namespace luadec
             irfun.PerformExpressionPropogation();
             irfun.DetectListInitializers();
 
+            // ---------------------------------
+            irfun.UnlinkIrrelevantEmptyBlocks();
+            // ---------------------------------
             // CFG passes
             irfun.StructureCompoundConditionals();
             irfun.DetectLoops();

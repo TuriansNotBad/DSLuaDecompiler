@@ -2,7 +2,7 @@
   "profiles": {
     "DSLuaDecompiler": {
       "commandName": "Project",
-      "commandLineArgs": "common_battle_func.lua"
+      "commandLineArgs": "zz_util.lua"
     }
   }
 }
